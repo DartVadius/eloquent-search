@@ -1,16 +1,16 @@
 <?php
 
-namespace Shifton\EloquentSearch\Tests\Feature;
+namespace DartVadius\EloquentSearch\Tests\Feature;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Orchestra\Testbench\TestCase;
-use Shifton\EloquentSearch\Searchable;
-use Shifton\EloquentSearch\SearchableConfig;
-use Shifton\EloquentSearch\SearchQuery;
-use Shifton\EloquentSearch\SearchServiceProvider;
+use DartVadius\EloquentSearch\Searchable;
+use DartVadius\EloquentSearch\SearchableConfig;
+use DartVadius\EloquentSearch\SearchQuery;
+use DartVadius\EloquentSearch\SearchServiceProvider;
 
 class HasFilterTest extends TestCase
 {

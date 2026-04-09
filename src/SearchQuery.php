@@ -1,12 +1,12 @@
 <?php
 
-namespace Shifton\EloquentSearch;
+namespace DartVadius\EloquentSearch;
 
 use Illuminate\Database\Eloquent\Builder;
-use Shifton\EloquentSearch\Parser\OperatorResolver;
-use Shifton\EloquentSearch\Parser\PayloadValidator;
-use Shifton\EloquentSearch\Parser\QueryParser;
-use Shifton\EloquentSearch\Sorting\SortApplier;
+use DartVadius\EloquentSearch\Parser\OperatorResolver;
+use DartVadius\EloquentSearch\Parser\PayloadValidator;
+use DartVadius\EloquentSearch\Parser\QueryParser;
+use DartVadius\EloquentSearch\Sorting\SortApplier;
 
 class SearchQuery
 {

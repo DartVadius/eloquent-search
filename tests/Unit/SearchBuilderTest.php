@@ -1,15 +1,15 @@
 <?php
 
-namespace Shifton\EloquentSearch\Tests\Unit;
+namespace DartVadius\EloquentSearch\Tests\Unit;
 
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Orchestra\Testbench\TestCase;
-use Shifton\EloquentSearch\Searchable;
-use Shifton\EloquentSearch\SearchableConfig;
-use Shifton\EloquentSearch\SearchBuilder;
-use Shifton\EloquentSearch\SearchQuery;
-use Shifton\EloquentSearch\SearchServiceProvider;
+use DartVadius\EloquentSearch\Searchable;
+use DartVadius\EloquentSearch\SearchableConfig;
+use DartVadius\EloquentSearch\SearchBuilder;
+use DartVadius\EloquentSearch\SearchQuery;
+use DartVadius\EloquentSearch\SearchServiceProvider;
 
 class SearchBuilderTest extends TestCase
 {

@@ -1,11 +1,11 @@
 <?php
 
-namespace Shifton\EloquentSearch\Tests\Unit;
+namespace DartVadius\EloquentSearch\Tests\Unit;
 
 use Orchestra\Testbench\TestCase;
-use Shifton\EloquentSearch\Exceptions\InvalidPayloadException;
-use Shifton\EloquentSearch\Parser\PayloadValidator;
-use Shifton\EloquentSearch\SearchServiceProvider;
+use DartVadius\EloquentSearch\Exceptions\InvalidPayloadException;
+use DartVadius\EloquentSearch\Parser\PayloadValidator;
+use DartVadius\EloquentSearch\SearchServiceProvider;
 
 class PayloadValidatorTest extends TestCase
 {

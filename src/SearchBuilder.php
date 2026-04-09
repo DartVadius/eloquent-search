@@ -1,9 +1,9 @@
 <?php
 
-namespace Shifton\EloquentSearch;
+namespace DartVadius\EloquentSearch;
 
 use Illuminate\Database\Eloquent\Builder;
-use Shifton\EloquentSearch\Pagination\SearchPaginator;
+use DartVadius\EloquentSearch\Pagination\SearchPaginator;
 
 class SearchBuilder
 {

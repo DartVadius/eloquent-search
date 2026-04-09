@@ -1,6 +1,6 @@
 <?php
 
-namespace Shifton\EloquentSearch\Exceptions;
+namespace DartVadius\EloquentSearch\Exceptions;
 
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 

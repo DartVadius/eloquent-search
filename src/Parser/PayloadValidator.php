@@ -1,8 +1,8 @@
 <?php
 
-namespace Shifton\EloquentSearch\Parser;
+namespace DartVadius\EloquentSearch\Parser;
 
-use Shifton\EloquentSearch\Exceptions\InvalidPayloadException;
+use DartVadius\EloquentSearch\Exceptions\InvalidPayloadException;
 
 class PayloadValidator
 {

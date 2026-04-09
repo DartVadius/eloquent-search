@@ -21,18 +21,18 @@
     },
     "autoload": {
         "psr-4": {
-            "Shifton\\EloquentSearch\\": "src/"
+            "DartVadius\\EloquentSearch\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Shifton\\EloquentSearch\\Tests\\": "tests/"
+            "DartVadius\\EloquentSearch\\Tests\\": "tests/"
         }
     },
     "extra": {
         "laravel": {
             "providers": [
-                "Shifton\\EloquentSearch\\SearchServiceProvider"
+                "DartVadius\\EloquentSearch\\SearchServiceProvider"
             ]
         }
     },

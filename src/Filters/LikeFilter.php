@@ -1,6 +1,6 @@
 <?php
 
-namespace Shifton\EloquentSearch\Filters;
+namespace DartVadius\EloquentSearch\Filters;
 
 use Illuminate\Database\Eloquent\Builder;
 

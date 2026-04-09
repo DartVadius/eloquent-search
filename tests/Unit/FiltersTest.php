@@ -1,19 +1,19 @@
 <?php
 
-namespace Shifton\EloquentSearch\Tests\Unit;
+namespace DartVadius\EloquentSearch\Tests\Unit;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Orchestra\Testbench\TestCase;
-use Shifton\EloquentSearch\Filters\BetweenFilter;
-use Shifton\EloquentSearch\Filters\ComparisonFilter;
-use Shifton\EloquentSearch\Filters\EqFilter;
-use Shifton\EloquentSearch\Filters\InFilter;
-use Shifton\EloquentSearch\Filters\IsNullFilter;
-use Shifton\EloquentSearch\Filters\LikeFilter;
-use Shifton\EloquentSearch\Filters\NotEqFilter;
-use Shifton\EloquentSearch\Filters\NotInFilter;
-use Shifton\EloquentSearch\SearchServiceProvider;
+use DartVadius\EloquentSearch\Filters\BetweenFilter;
+use DartVadius\EloquentSearch\Filters\ComparisonFilter;
+use DartVadius\EloquentSearch\Filters\EqFilter;
+use DartVadius\EloquentSearch\Filters\InFilter;
+use DartVadius\EloquentSearch\Filters\IsNullFilter;
+use DartVadius\EloquentSearch\Filters\LikeFilter;
+use DartVadius\EloquentSearch\Filters\NotEqFilter;
+use DartVadius\EloquentSearch\Filters\NotInFilter;
+use DartVadius\EloquentSearch\SearchServiceProvider;
 
 class FiltersTest extends TestCase
 {

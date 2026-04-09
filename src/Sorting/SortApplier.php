@@ -1,9 +1,9 @@
 <?php
 
-namespace Shifton\EloquentSearch\Sorting;
+namespace DartVadius\EloquentSearch\Sorting;
 
 use Illuminate\Database\Eloquent\Builder;
-use Shifton\EloquentSearch\SearchableConfig;
+use DartVadius\EloquentSearch\SearchableConfig;
 
 class SortApplier
 {

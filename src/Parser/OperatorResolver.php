@@ -1,10 +1,10 @@
 <?php
 
-namespace Shifton\EloquentSearch\Parser;
+namespace DartVadius\EloquentSearch\Parser;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
-use Shifton\EloquentSearch\SearchableConfig;
+use DartVadius\EloquentSearch\SearchableConfig;
 
 class OperatorResolver
 {

@@ -1,6 +1,6 @@
 <?php
 
-namespace Shifton\EloquentSearch\Contracts;
+namespace DartVadius\EloquentSearch\Contracts;
 
 use Illuminate\Database\Eloquent\Builder;
 

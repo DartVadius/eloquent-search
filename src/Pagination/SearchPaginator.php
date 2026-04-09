@@ -1,6 +1,6 @@
 <?php
 
-namespace Shifton\EloquentSearch\Pagination;
+namespace DartVadius\EloquentSearch\Pagination;
 
 use Illuminate\Database\Eloquent\Builder;
 

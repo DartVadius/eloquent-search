@@ -1,8 +1,8 @@
 <?php
 
-namespace Shifton\EloquentSearch;
+namespace DartVadius\EloquentSearch;
 
-use Shifton\EloquentSearch\Contracts\CustomFilter;
+use DartVadius\EloquentSearch\Contracts\CustomFilter;
 
 class SearchableConfig
 {

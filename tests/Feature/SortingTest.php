@@ -1,14 +1,14 @@
 <?php
 
-namespace Shifton\EloquentSearch\Tests\Feature;
+namespace DartVadius\EloquentSearch\Tests\Feature;
 
 use Illuminate\Database\Eloquent\Model;
 use Orchestra\Testbench\TestCase;
-use Shifton\EloquentSearch\Searchable;
-use Shifton\EloquentSearch\SearchableConfig;
-use Shifton\EloquentSearch\SearchQuery;
-use Shifton\EloquentSearch\SearchServiceProvider;
-use Shifton\EloquentSearch\Sorting\SortApplier;
+use DartVadius\EloquentSearch\Searchable;
+use DartVadius\EloquentSearch\SearchableConfig;
+use DartVadius\EloquentSearch\SearchQuery;
+use DartVadius\EloquentSearch\SearchServiceProvider;
+use DartVadius\EloquentSearch\Sorting\SortApplier;
 
 class SortingTest extends TestCase
 {

@@ -63,8 +63,8 @@ This creates `config/eloquent-search.php` with default settings.
 Add the `Searchable` trait and define `searchableConfig()`:
 
 ```php
-use Shifton\EloquentSearch\Searchable;
-use Shifton\EloquentSearch\SearchableConfig;
+use DartVadius\EloquentSearch\Searchable;
+use DartVadius\EloquentSearch\SearchableConfig;
 
 class Task extends Model
 {
@@ -83,7 +83,7 @@ class Task extends Model
 ### 2. Use in a controller
 
 ```php
-use Shifton\EloquentSearch\SearchQuery;
+use DartVadius\EloquentSearch\SearchQuery;
 
 public function search(Request $request)
 {
@@ -657,7 +657,7 @@ For queries that cannot be expressed through the standard operators (subqueries,
 
 ```php
 use Illuminate\Database\Eloquent\Builder;
-use Shifton\EloquentSearch\Contracts\CustomFilter;
+use DartVadius\EloquentSearch\Contracts\CustomFilter;
 
 class TaskStatusFilter implements CustomFilter
 {
@@ -731,7 +731,7 @@ return [
 
 ## Validation & Error Handling
 
-The library validates the payload structure before executing any queries. Invalid payloads throw `Shifton\EloquentSearch\Exceptions\InvalidPayloadException` (extends `Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException`).
+The library validates the payload structure before executing any queries. Invalid payloads throw `DartVadius\EloquentSearch\Exceptions\InvalidPayloadException` (extends `Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException`).
 
 In a Laravel application, this means invalid payloads automatically return a `422 Unprocessable Entity` HTTP response — no manual `try/catch` required.
 
@@ -767,7 +767,7 @@ Since `InvalidPayloadException` extends `UnprocessableEntityHttpException`, Lara
 If you need custom error formatting, you can still catch it explicitly:
 
 ```php
-use Shifton\EloquentSearch\Exceptions\InvalidPayloadException;
+use DartVadius\EloquentSearch\Exceptions\InvalidPayloadException;
 
 try {
     $result = SearchQuery::apply($query, $payload);

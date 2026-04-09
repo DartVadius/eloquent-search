@@ -1,6 +1,6 @@
 <?php
 
-namespace Shifton\EloquentSearch;
+namespace DartVadius\EloquentSearch;
 
 trait Searchable
 {
