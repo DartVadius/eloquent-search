@@ -301,7 +301,97 @@ class SearchQueryTest extends TestCase
         $this->assertEquals('Alice', $names[0]);
     }
 
-    // --- Section 9: Comparison Filters ---
+    // --- Section 9: Nullable Config ---
+
+    public function test_nullable_config_enables_is_null_for_integer_field(): void
+    {
+        // category_id is integer, not nullable in schema by default for SearchTestModel
+        // NullableConfigTestModel uses ->nullable(['category_id']) to force is_null support
+        NullableConfigTestModel::create([
+            'name' => 'Frank', 'status' => 'active', 'category_id' => null,
+            'is_active' => true, 'scheduled_at' => '2026-04-20 10:00:00',
+        ]);
+
+        $result = SearchQuery::apply(NullableConfigTestModel::query(), [
+            'where' => ['is_null' => ['category_id' => true]],
+        ]);
+
+        $this->assertSame(1, $result['total']);
+        $this->assertSame('Frank', $result['data'][0]->name);
+    }
+
+    public function test_nullable_config_is_null_false_returns_non_null(): void
+    {
+        NullableConfigTestModel::create([
+            'name' => 'Frank', 'status' => 'active', 'category_id' => null,
+            'is_active' => true, 'scheduled_at' => '2026-04-20 10:00:00',
+        ]);
+
+        $result = SearchQuery::apply(NullableConfigTestModel::query(), [
+            'where' => ['is_null' => ['category_id' => false]],
+        ]);
+
+        // All seeded records (5) have non-null category_id, Frank has null
+        $this->assertSame(5, $result['total']);
+        $names = collect($result['data'])->pluck('name')->all();
+        $this->assertNotContains('Frank', $names);
+    }
+
+    public function test_nullable_config_shorthand_array(): void
+    {
+        NullableConfigTestModel::create([
+            'name' => 'Frank', 'status' => 'active', 'category_id' => null,
+            'is_active' => true, 'scheduled_at' => '2026-04-20 10:00:00',
+        ]);
+
+        $result = SearchQuery::apply(NullableConfigTestModel::query(), [
+            'where' => ['is_null' => ['category_id']],
+        ]);
+
+        $this->assertSame(1, $result['total']);
+        $this->assertSame('Frank', $result['data'][0]->name);
+    }
+
+    public function test_nullable_config_combined_with_other_filters(): void
+    {
+        NullableConfigTestModel::create([
+            'name' => 'Frank', 'status' => 'active', 'category_id' => null,
+            'is_active' => true, 'scheduled_at' => '2026-04-20 10:00:00',
+        ]);
+        NullableConfigTestModel::create([
+            'name' => 'Grace', 'status' => 'inactive', 'category_id' => null,
+            'is_active' => false, 'scheduled_at' => '2026-04-21 10:00:00',
+        ]);
+
+        $result = SearchQuery::apply(NullableConfigTestModel::query(), [
+            'where' => [
+                'is_null' => ['category_id' => true],
+                'eq' => ['status' => 'active'],
+            ],
+        ]);
+
+        $this->assertSame(1, $result['total']);
+        $this->assertSame('Frank', $result['data'][0]->name);
+    }
+
+    public function test_nullable_config_multiple_fields(): void
+    {
+        // Diana already has scheduled_at=null and tags=null from seed data
+        // Add a record with only category_id=null
+        NullableConfigTestModel::create([
+            'name' => 'Frank', 'status' => 'active', 'category_id' => null,
+            'is_active' => true, 'scheduled_at' => '2026-04-20 10:00:00',
+        ]);
+
+        $result = SearchQuery::apply(NullableConfigTestModel::query(), [
+            'where' => ['is_null' => ['category_id', 'scheduled_at']],
+        ]);
+
+        // No record has both category_id=null AND scheduled_at=null
+        $this->assertSame(0, $result['total']);
+    }
+
+    // --- Section 10: Comparison Filters ---
 
     public function test_lt_filter(): void
     {
@@ -413,6 +503,31 @@ class SearchQueryTest extends TestCase
         // Default max_per_page is 1000, so 2000 is capped to 1000
         $this->assertEquals(1000, $result['per_page']);
         $this->assertEquals(5, $result['total']);
+    }
+}
+
+class NullableConfigTestModel extends Model
+{
+    use Searchable;
+
+    protected $table = 'test_models';
+    protected $guarded = [];
+
+    protected $casts = [
+        'category_id' => 'integer',
+        'is_active' => 'boolean',
+        'scheduled_at' => 'datetime',
+        'tags' => 'array',
+    ];
+
+    public function searchableConfig(): SearchableConfig
+    {
+        return SearchableConfig::make()
+            ->fields(['id', 'name', 'status', 'category_id', 'is_active', 'scheduled_at'])
+            ->nullable(['category_id'])
+            ->jsonFields(['tags'])
+            ->sortable(['id', 'name', 'scheduled_at'])
+            ->defaultSort('name', 'asc');
     }
 }
 

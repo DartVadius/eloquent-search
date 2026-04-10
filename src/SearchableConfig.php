@@ -15,6 +15,7 @@ class SearchableConfig
     protected array $relationFields = [];
     protected array $searchFields = [];
     protected array $searchCallbacks = [];
+    protected array $nullableFields = [];
 
     public static function make(): static
     {
@@ -98,6 +99,16 @@ class SearchableConfig
         return $this;
     }
 
+    /**
+     * @param array<string> $fields
+     */
+    public function nullable(array $fields): static
+    {
+        $this->nullableFields = $fields;
+
+        return $this;
+    }
+
     public function filter(string $name, CustomFilter $filter): static
     {
         $this->customFilters[$name] = $filter;
@@ -157,6 +168,11 @@ class SearchableConfig
     public function getRelationAllowedFields(string $name): array
     {
         return $this->relationFields[$name] ?? [];
+    }
+
+    public function getNullableFields(): array
+    {
+        return $this->nullableFields;
     }
 
     public function getSearchFields(): array

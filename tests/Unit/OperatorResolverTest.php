@@ -212,6 +212,34 @@ class OperatorResolverTest extends TestCase
         $this->assertSame(3, $result['total']);
     }
 
+    public function test_nullable_config_adds_is_null_to_integer_field(): void
+    {
+        // category_id is integer — by default is_null depends on schema detection
+        // With nullable() config, is_null is guaranteed regardless of schema
+        $result = SearchQuery::apply(ResolverNullableConfigModel::query(), [
+            'where' => ['is_null' => ['category_id' => true]],
+        ]);
+
+        // Charlie has category_id=5, but no record has null category_id in seed data
+        $this->assertSame(0, $result['total']);
+    }
+
+    public function test_nullable_config_is_null_shorthand(): void
+    {
+        // Test shorthand format: is_null => ["field1", "field2"]
+        ResolverNullableConfigModel::create([
+            'name' => 'Diana', 'status' => 'active', 'category_id' => null,
+            'is_active' => true, 'scheduled_at' => null,
+        ]);
+
+        $result = SearchQuery::apply(ResolverNullableConfigModel::query(), [
+            'where' => ['is_null' => ['category_id']],
+        ]);
+
+        $this->assertSame(1, $result['total']);
+        $this->assertSame('Diana', $result['data'][0]->name);
+    }
+
     public function test_unknown_column_falls_back_to_string_operators(): void
     {
         // name is not in $casts and is varchar → should get string operators
@@ -298,6 +326,28 @@ class ResolverCustomFilterModel extends Model
         return SearchableConfig::make()
             ->fields(['id', 'name', 'status'])
             ->filter('active_range', new ResolverTestDateFilter())
+            ->sortable(['id', 'name'])
+            ->defaultSort('name', 'asc');
+    }
+}
+
+class ResolverNullableConfigModel extends Model
+{
+    use Searchable;
+
+    protected $table = 'test_models';
+    protected $guarded = [];
+
+    protected $casts = [
+        'category_id' => 'integer',
+        'is_active' => 'boolean',
+    ];
+
+    public function searchableConfig(): SearchableConfig
+    {
+        return SearchableConfig::make()
+            ->fields(['id', 'name', 'status', 'category_id', 'is_active'])
+            ->nullable(['category_id'])
             ->sortable(['id', 'name'])
             ->defaultSort('name', 'asc');
     }

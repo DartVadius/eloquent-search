@@ -10,6 +10,7 @@ Universal JSON query DSL parser for Laravel Eloquent. Accepts a structured JSON 
 - [How It Works](#how-it-works)
 - [Model Configuration](#model-configuration)
   - [Fields](#fields)
+  - [Nullable Fields](#nullable-fields)
   - [JSON Fields](#json-fields)
   - [Sorting](#sorting)
   - [Search Fields](#search-fields)
@@ -74,6 +75,7 @@ class Task extends Model
     {
         return SearchableConfig::make()
             ->fields(['id', 'title', 'employee_id', 'scheduled_time', 'created_at'])
+            ->nullable(['employee_id'])
             ->sortable(['id', 'scheduled_time', 'created_at'])
             ->defaultSort('scheduled_time', 'asc');
     }
@@ -172,7 +174,22 @@ SearchableConfig::make()
 
 Operators are auto-resolved from the model's `$casts` or the database schema. See [Operator Auto-Resolution](#operator-auto-resolution) for the full mapping.
 
-**Nullable columns** automatically get the `is_null` operator added.
+**Nullable columns** detected from the database schema automatically get the `is_null` operator added. For columns where schema detection is unreliable (or the column is `NOT NULL` in the schema but you still need `is_null` filtering), use the explicit `nullable()` method below.
+
+### Nullable Fields
+
+Explicitly mark fields that should support the `is_null` operator, regardless of their database schema:
+
+```php
+->nullable(['employee_id', 'client_id', 'parent_id'])
+```
+
+This guarantees `is_null` is available for these fields without relying on database schema introspection. Useful when:
+- The column is `NOT NULL` in the schema but you need to filter by null values
+- Schema detection fails due to caching or connection issues
+- You want explicit control over which fields support null filtering
+
+Fields listed in `nullable()` get `is_null` added to their auto-resolved operators. Schema-based nullable detection still works as a fallback for all other fields.
 
 ### JSON Fields
 
@@ -649,7 +666,8 @@ The library automatically determines which operators are valid for each field ba
 | `array`, `collection`, `json` | `json_contains`, `json_contains_all` |
 
 Additionally:
-- **Nullable columns** get `is_null` added automatically
+- **Nullable columns** detected from the database schema get `is_null` added automatically
+- **`nullable()`** explicitly adds `is_null` for listed fields, regardless of schema
 - **`jsonFields()`** forces `json_contains` + `json_contains_all` regardless of cast type
 - **Explicit overrides** (`'status' => ['eq', 'in']`) bypass auto-resolution entirely
 

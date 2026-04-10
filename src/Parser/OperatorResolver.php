@@ -53,7 +53,14 @@ class OperatorResolver
             $result[$name] = $filter->allowedOperators();
         }
 
-        // Add is_null to nullable fields
+        // Add is_null to explicitly configured nullable fields
+        foreach ($config->getNullableFields() as $field) {
+            if (isset($result[$field]) && ! in_array('is_null', $result[$field], true)) {
+                $result[$field][] = 'is_null';
+            }
+        }
+
+        // Add is_null to nullable fields detected from schema
         $this->addNullableOperators($model, $result);
 
         return $result;
