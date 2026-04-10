@@ -96,6 +96,14 @@ class QueryParser
                 continue;
             }
 
+            // is_null shorthand: ["field1", "field2"] → all IS NULL
+            if ($operator === 'is_null' && array_is_list($fields)) {
+                foreach ($fields as $field) {
+                    $this->applyCondition($query, 'is_null', $field, true);
+                }
+                continue;
+            }
+
             foreach ($fields as $field => $value) {
                 $this->applyCondition($query, $operator, $field, $value);
             }

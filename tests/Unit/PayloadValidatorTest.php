@@ -495,6 +495,23 @@ class PayloadValidatorTest extends TestCase
         ]);
     }
 
+    public function test_is_null_array_shorthand_valid(): void
+    {
+        $this->validator->validate([
+            'where' => ['is_null' => ['scheduled_at', 'cancelled_at']],
+        ]);
+        $this->assertTrue(true);
+    }
+
+    public function test_is_null_array_shorthand_rejects_non_string_items(): void
+    {
+        $this->expectException(InvalidPayloadException::class);
+        $this->expectExceptionMessage('expected string field name');
+        $this->validator->validate([
+            'where' => ['is_null' => ['scheduled_at', 123]],
+        ]);
+    }
+
     public function test_in_with_string_value_rejected(): void
     {
         $this->expectException(InvalidPayloadException::class);

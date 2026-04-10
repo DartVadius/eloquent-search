@@ -80,6 +80,17 @@ class PayloadValidator
                 continue;
             }
 
+            // is_null supports shorthand array format: ["field1", "field2"] → all IS NULL
+            if ($operator === 'is_null' && is_array($fields) && array_is_list($fields)) {
+                foreach ($fields as $i => $field) {
+                    if (! is_string($field)) {
+                        throw new InvalidPayloadException("is_null[{$i}] in {$context}: expected string field name, got " . gettype($field) . '.');
+                    }
+                    $count++;
+                }
+                continue;
+            }
+
             if (! is_array($fields)) {
                 throw new InvalidPayloadException("Operator \"{$operator}\" in {$context} must contain an object of field:value pairs.");
             }

@@ -103,7 +103,7 @@ class OperatorResolver
         }
 
         return match (true) {
-            in_array($type, ['integer', 'bigint', 'smallint', 'tinyint', 'mediumint']) => 'integer',
+            in_array($type, ['int', 'integer', 'bigint', 'smallint', 'tinyint', 'mediumint']) => 'integer',
             in_array($type, ['float', 'double', 'decimal']) => 'float',
             in_array($type, ['boolean']) => 'boolean',
             in_array($type, ['date']) => 'date',

@@ -133,6 +133,27 @@ class SearchQueryTest extends TestCase
         $this->assertEquals(4, $result['total']);
     }
 
+    public function test_is_null_array_shorthand(): void
+    {
+        $result = SearchQuery::apply(SearchTestModel::query(), [
+            'where' => ['is_null' => ['scheduled_at']],
+        ]);
+
+        $this->assertEquals(1, $result['total']);
+        $this->assertEquals('Diana', $result['data'][0]->name);
+    }
+
+    public function test_is_null_array_shorthand_multiple_fields(): void
+    {
+        $result = SearchQuery::apply(SearchTestModel::query(), [
+            'where' => ['is_null' => ['scheduled_at', 'tags']],
+        ]);
+
+        // Only Diana has both scheduled_at=null AND tags=null
+        $this->assertEquals(1, $result['total']);
+        $this->assertEquals('Diana', $result['data'][0]->name);
+    }
+
     public function test_eq_boolean_filter(): void
     {
         $result = SearchQuery::apply(SearchTestModel::query(), [
