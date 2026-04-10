@@ -45,7 +45,7 @@ Universal JSON query DSL parser for Laravel Eloquent. Accepts a structured JSON 
 Add the package to your project via Composer:
 
 ```bash
-composer require shifton/eloquent-search
+composer require dartvadius/eloquent-search
 ```
 
 Laravel auto-discovers the service provider. To publish the config file:
@@ -358,9 +358,11 @@ The `%` wrapping is automatic. Special characters (`%`, `_`, `!`) are auto-escap
 
 | Operator | SQL | Value type | Example |
 |----------|-----|------------|---------|
-| `is_null` | `IS NULL` / `IS NOT NULL` | boolean | `{"is_null": {"cancelled_at": true}}` |
+| `is_null` | `IS NULL` / `IS NOT NULL` | boolean or array | `{"is_null": {"cancelled_at": true}}` |
 
-`true` = IS NULL, `false` = IS NOT NULL.
+**Object format:** `{"is_null": {"field": true}}` — `true` = IS NULL, `false` = IS NOT NULL.
+
+**Array shorthand:** `{"is_null": ["field1", "field2"]}` — all listed fields must be NULL. Equivalent to `{"is_null": {"field1": true, "field2": true}}`.
 
 #### JSON operators
 
@@ -747,7 +749,8 @@ In a Laravel application, this means invalid payloads automatically return a `42
 | `in` value is empty | `in.field in where: expected non-empty array.` |
 | `between` value has != 2 elements | `between.field in where: expected array with exactly 2 elements.` |
 | `like` value is not string | `like.field in where: expected string, got integer.` |
-| `is_null` value is not boolean | `is_null.field in where: expected boolean, got string.` |
+| `is_null` value is not boolean/array | `is_null.field in where: expected boolean, got string.` |
+| `is_null` array shorthand has non-string | `is_null[1] in where: expected string field name, got integer.` |
 | Total conditions > max | `Too many conditions: 55 (max: 50).` |
 | `in` values > max | `in.field in where: too many values 600 (max: 500).` |
 | `and_or` groups > max | `Too many "and_or" groups in where: 15 (max: 10).` |
