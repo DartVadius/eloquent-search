@@ -29,6 +29,7 @@ Universal JSON query DSL parser for Laravel Eloquent. Accepts a structured JSON 
 - [API Reference](#api-reference)
   - [SearchQuery::apply()](#searchqueryapply)
   - [SearchQuery::build()](#searchquerybuild)
+  - [SearchQuery::aggregate()](#searchqueryaggregate)
   - [SearchBuilder](#searchbuilder)
 - [Aggregation](#aggregation)
   - [Declaring aggregatable fields](#declaring-aggregatable-fields)
@@ -331,6 +332,13 @@ The payload is a JSON object with these top-level keys:
 | `page` | integer | No | Page number (enables pagination) |
 | `per_page` | integer | No | Results per page (default: 25, max: 1000) |
 | `count_only` | boolean | No | If true, returns only `{"total": N}` |
+| `aggregate` | object | No | Aggregation spec (GROUP BY) — see [Aggregation](#aggregation) |
+
+> ⚠️ **A valid, well-formed payload is required.** The structure above is strict: wrong types
+> or malformed blocks — `where` that isn't an object, a `between` without exactly two values,
+> a non-integer `page`, etc. — are rejected with `InvalidPayloadException` → HTTP **422**.
+> Unknown *field names* and *operators* are tolerated (silently skipped), but the **shape** of
+> each block is enforced. See [Validation & Error Handling](#validation--error-handling).
 
 ### Operators
 
@@ -619,6 +627,17 @@ $config = (new Task)->searchableConfig()
 $builder = SearchQuery::build($query, $payload, [], $config);
 ```
 
+### SearchQuery::aggregate()
+
+Applies the payload's filters and runs the `aggregate` block (GROUP BY) — returns the
+aggregate rows. Mirror of `apply()`, but the terminal is aggregation instead of pagination.
+See [Aggregation](#aggregation).
+
+```php
+$rows = SearchQuery::aggregate($query, $payload, $allowedRelations, $config);
+// [['group' => 1, 'value' => 142], ...]  (or [['value' => 327]] without a group-by)
+```
+
 ### SearchBuilder
 
 Returned by `SearchQuery::build()`. Provides access to the modified query:
@@ -636,8 +655,8 @@ $result = $builder->paginate();
 // Get count only
 $count = $builder->count();
 
-// Aggregate (GROUP BY) over the filtered query — see the Aggregation section
-$rows = $builder->aggregate(['metric' => ['fn' => 'count'], 'groupBy' => ['field' => 'status']]);
+// Aggregate (GROUP BY) — reads the payload's `aggregate` block; see the Aggregation section
+$rows = $builder->aggregate();
 ```
 
 **Typical pattern** for unpaginated results:
@@ -689,12 +708,20 @@ SearchableConfig::make()
 
 ### Running an aggregation
 
+The aggregate spec lives **inside the payload** under the `aggregate` key — the whole JSON
+goes into the builder, exactly like the rest of the DSL. `where`/`or`/`has` filter the data,
+then the `aggregate` block runs the GROUP BY:
+
 ```php
-$rows = SearchQuery::build(Shift::query()->where('company_id', $companyId), $payload)
-    ->aggregate([
+$payload = [
+    'where'     => ['eq' => ['status' => 'done']],
+    'aggregate' => [
         'metric'  => ['fn' => 'sum', 'field' => 'duration'],
         'groupBy' => ['field' => 'project_id'],
-    ]);
+    ],
+];
+
+$rows = SearchQuery::aggregate(Shift::query()->where('company_id', $companyId), $payload);
 
 // [
 //   ['group' => 1, 'value' => 142],
@@ -703,31 +730,23 @@ $rows = SearchQuery::build(Shift::query()->where('company_id', $companyId), $pay
 // ]
 ```
 
-`$payload` is the same JSON DSL used everywhere — **filters are applied before the grouping**:
+Equivalent via the builder (e.g. to add constraints before running):
 
 ```php
-$rows = SearchQuery::build(Shift::query(), [
-        'where' => ['eq' => ['status' => 'done']],
-    ])
-    ->aggregate(['metric' => ['fn' => 'count'], 'groupBy' => ['field' => 'project_id']]);
+$rows = SearchQuery::build(Shift::query(), $payload)->aggregate();
 ```
-
-> `aggregate()` requires the config resolved by `SearchQuery::build()` — call it on a builder
-> returned from `build()` (not on a manually constructed `SearchBuilder`).
 
 ### Example JSON request
 
-A typical HTTP request carries the search payload (filters) and the aggregate spec. One
-clean convention is to nest them under separate keys:
+The request is a single, well-formed payload — filters and the `aggregate` block together —
+sent as-is to the builder:
 
 ```jsonc
 // POST /shifts/aggregate
 {
-  "filter": {
-    "where": {
-      "eq": { "status": "done" },
-      "between": { "scheduled_time": ["2026-05-01 00:00:00", "2026-05-31 23:59:59"] }
-    }
+  "where": {
+    "eq": { "status": "done" },
+    "between": { "scheduled_time": ["2026-05-01 00:00:00", "2026-05-31 23:59:59"] }
   },
   "aggregate": {
     "metric":    { "fn": "sum", "field": "duration" },
@@ -742,9 +761,10 @@ clean convention is to nest them under separate keys:
 ```php
 public function aggregate(Request $request)
 {
-    $rows = SearchQuery::build(Shift::query()->where('company_id', $request->user()->company_id),
-            $request->input('filter', []))
-        ->aggregate($request->input('aggregate', []));
+    $rows = SearchQuery::aggregate(
+        Shift::query()->where('company_id', $request->user()->company_id),
+        $request->all()
+    );
 
     return response()->json($rows);
 }
@@ -776,23 +796,27 @@ public function aggregate(Request $request)
 Values come back as numbers — `int` for whole results, `float` for fractional ones (e.g. `avg`).
 
 ```php
-// Single value (KPI)
-SearchQuery::build(Shift::query(), $payload)->aggregate(['metric' => ['fn' => 'count']]);
+// Single value (KPI) — payload: ['aggregate' => ['metric' => ['fn' => 'count']]]
+SearchQuery::aggregate(Shift::query(), $payload);
 // [['value' => 327]]
 ```
 
 ### Top-N
 
-Order by the aggregate value and limit the rows:
+Order by the aggregate value and limit the rows (in the payload's `aggregate` block):
 
 ```php
-$rows = SearchQuery::build(Shift::query(), $payload)->aggregate([
-    'metric'    => ['fn' => 'sum', 'field' => 'duration'],
-    'groupBy'   => ['field' => 'project_id'],
-    'orderBy'   => 'value',
-    'direction' => 'desc',
-    'limit'     => 5,
-]);
+$payload = [
+    'aggregate' => [
+        'metric'    => ['fn' => 'sum', 'field' => 'duration'],
+        'groupBy'   => ['field' => 'project_id'],
+        'orderBy'   => 'value',
+        'direction' => 'desc',
+        'limit'     => 5,
+    ],
+];
+
+$rows = SearchQuery::aggregate(Shift::query(), $payload);
 ```
 
 ### Validation

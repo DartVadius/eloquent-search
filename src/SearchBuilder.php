@@ -41,19 +41,24 @@ class SearchBuilder
 
     /**
      * Aggregation terminal — GROUP BY + aggregate over the filtered query.
-     * Metric/group-by are validated against the model's SearchableConfig (closed set).
      *
-     * @param array $spec ['metric' => ['fn' => 'count'|'sum'|'avg'|'min'|'max', 'field' => ?string],
-     *                      'groupBy' => null|['field' => string],
-     *                      'orderBy' => ?'value'|'group', 'direction' => ?'asc'|'desc', 'limit' => ?int]
+     * The spec travels inside the payload under the `aggregate` key (the whole JSON goes
+     * into the builder, consistent with the rest of the DSL). Metric/group-by are validated
+     * against the model's SearchableConfig (closed set).
+     *
+     * payload['aggregate']:
+     *   ['metric' => ['fn' => 'count'|'sum'|'avg'|'min'|'max', 'field' => ?string],
+     *    'groupBy' => null|['field' => string],
+     *    'orderBy' => ?'value'|'group', 'direction' => ?'asc'|'desc', 'limit' => ?int]
+     *
      * @return array<array{group?: mixed, value: int|float}>
      */
-    public function aggregate(array $spec): array
+    public function aggregate(): array
     {
         if ($this->config === null) {
             throw new \RuntimeException('aggregate() requires a SearchableConfig — use SearchQuery::build().');
         }
 
-        return (new Aggregator())->aggregate($this->query, $this->config, $spec);
+        return (new Aggregator())->aggregate($this->query, $this->config, $this->payload['aggregate'] ?? []);
     }
 }

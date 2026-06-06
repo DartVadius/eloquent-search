@@ -23,6 +23,19 @@ class SearchQuery
     }
 
     /**
+     * Apply filters and run an aggregation from a single payload — return the aggregate rows.
+     * The `aggregate` block in the payload defines the metric / group-by; `where`/`or`/`has`
+     * filter the data first. Mirror of apply(), but the terminal is GROUP BY instead of pagination.
+     *
+     * @param array<string> $allowedRelations Relations allowed for $has filtering (role-based whitelist)
+     * @return array<array{group?: mixed, value: int|float}>
+     */
+    public static function aggregate(Builder $query, array $payload, array $allowedRelations = [], ?SearchableConfig $config = null): array
+    {
+        return static::build($query, $payload, $allowedRelations, $config)->aggregate();
+    }
+
+    /**
      * Build query with filters and sorting — return SearchBuilder for manual control.
      *
      * @param array<string> $allowedRelations Relations allowed for $has filtering (role-based whitelist)

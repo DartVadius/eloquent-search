@@ -37,7 +37,8 @@ class AggregationTest extends TestCase
 
     private function agg(array $spec, array $payload = []): array
     {
-        return SearchQuery::build(AggTestModel::query(), $payload)->aggregate($spec);
+        // primary usage: the whole payload (filters + aggregate block) goes into the builder
+        return SearchQuery::aggregate(AggTestModel::query(), array_merge($payload, ['aggregate' => $spec]));
     }
 
     /** value-by-group map for order-independent assertions */
@@ -164,6 +165,19 @@ class AggregationTest extends TestCase
         $this->expectException(InvalidPayloadException::class);
         // 'name' is not in ->dimensions()
         $this->agg(['metric' => ['fn' => 'count'], 'groupBy' => ['field' => 'name']]);
+    }
+
+    // ── call styles ──
+
+    public function test_builder_aggregate_reads_spec_from_payload(): void
+    {
+        // whole payload into build(); aggregate() reads the `aggregate` block from it
+        $rows = SearchQuery::build(AggTestModel::query(), [
+            'where' => ['eq' => ['status' => 'active']],
+            'aggregate' => ['metric' => ['fn' => 'count'], 'groupBy' => ['field' => 'category_id']],
+        ])->aggregate();
+
+        $this->assertEquals([1 => 1, 2 => 1, 3 => 1], $this->map($rows));
     }
 }
 
