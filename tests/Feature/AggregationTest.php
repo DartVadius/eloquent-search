@@ -115,33 +115,6 @@ class AggregationTest extends TestCase
         $this->assertEquals([1 => 1, 2 => 1, 3 => 1], $this->map($rows));
     }
 
-    // ── temporal bucket group-by ──
-
-    public function test_group_by_month_bucket(): void
-    {
-        $rows = $this->agg([
-            'metric' => ['fn' => 'count'],
-            'groupBy' => ['field' => 'scheduled_at', 'bucket' => 'month'],
-        ]);
-        $map = $this->map($rows);
-
-        // April: Alice, Bob, Eve = 3; May: Charlie = 1; Diana (null) bucketed to null group
-        $this->assertEquals(3, $map['2026-04']);
-        $this->assertEquals(1, $map['2026-05']);
-    }
-
-    public function test_group_by_day_bucket(): void
-    {
-        $rows = $this->agg([
-            'metric' => ['fn' => 'count'],
-            'groupBy' => ['field' => 'scheduled_at', 'bucket' => 'day'],
-        ]);
-        $map = $this->map($rows);
-
-        $this->assertEquals(1, $map['2026-04-01']);
-        $this->assertEquals(1, $map['2026-04-15']);
-    }
-
     // ── ordering + top-N ──
 
     public function test_order_by_value_desc_with_limit_topN(): void
@@ -192,19 +165,6 @@ class AggregationTest extends TestCase
         // 'name' is not in ->dimensions()
         $this->agg(['metric' => ['fn' => 'count'], 'groupBy' => ['field' => 'name']]);
     }
-
-    public function test_rejects_temporal_group_by_on_non_date_field(): void
-    {
-        $this->expectException(InvalidPayloadException::class);
-        // 'category_id' is not in ->dateBuckets()
-        $this->agg(['metric' => ['fn' => 'count'], 'groupBy' => ['field' => 'category_id', 'bucket' => 'day']]);
-    }
-
-    public function test_rejects_unknown_bucket(): void
-    {
-        $this->expectException(InvalidPayloadException::class);
-        $this->agg(['metric' => ['fn' => 'count'], 'groupBy' => ['field' => 'scheduled_at', 'bucket' => 'decade']]);
-    }
 }
 
 class AggTestModel extends Model
@@ -225,7 +185,6 @@ class AggTestModel extends Model
             ->fields(['id', 'name', 'status', 'category_id', 'scheduled_at'])
             ->metrics(['category_id' => ['sum', 'avg', 'min', 'max']])
             ->dimensions(['status', 'category_id'])
-            ->dateBuckets(['scheduled_at'])
             ->sortable(['id', 'name'])
             ->defaultSort('name', 'asc');
     }

@@ -18,7 +18,6 @@ class SearchableConfig
     protected array $nullableFields = [];
     protected array $metrics = [];
     protected array $dimensions = [];
-    protected array $dateBuckets = [];
 
     public static function make(): static
     {
@@ -144,18 +143,6 @@ class SearchableConfig
         return $this;
     }
 
-    /**
-     * Date/datetime fields allowed as a TEMPORAL group-by (bucketed by hour/day/week/month).
-     *
-     * @param array<string> $fields
-     */
-    public function dateBuckets(array $fields): static
-    {
-        $this->dateBuckets = $fields;
-
-        return $this;
-    }
-
     public function getFields(): array
     {
         return $this->fields;
@@ -236,10 +223,5 @@ class SearchableConfig
     public function getDimensions(): array
     {
         return $this->dimensions;
-    }
-
-    public function getDateBuckets(): array
-    {
-        return $this->dateBuckets;
     }
 }

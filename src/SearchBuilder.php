@@ -44,7 +44,7 @@ class SearchBuilder
      * Metric/group-by are validated against the model's SearchableConfig (closed set).
      *
      * @param array $spec ['metric' => ['fn' => 'count'|'sum'|'avg'|'min'|'max', 'field' => ?string],
-     *                      'groupBy' => null|['field' => string, 'bucket' => ?'hour'|'day'|'week'|'month'],
+     *                      'groupBy' => null|['field' => string],
      *                      'orderBy' => ?'value'|'group', 'direction' => ?'asc'|'desc', 'limit' => ?int]
      * @return array<array{group?: mixed, value: int|float}>
      */

@@ -33,8 +33,8 @@ Universal JSON query DSL parser for Laravel Eloquent. Accepts a structured JSON 
 - [Aggregation](#aggregation)
   - [Declaring aggregatable fields](#declaring-aggregatable-fields)
   - [Running an aggregation](#running-an-aggregation)
+  - [Example JSON request](#example-json-request)
   - [Spec & result shape](#spec--result-shape)
-  - [Temporal grouping (trend)](#temporal-grouping-trend)
   - [Top-N](#top-n)
   - [Validation](#validation)
 - [Operator Auto-Resolution](#operator-auto-resolution)
@@ -665,7 +665,7 @@ if (isset($payload['page'])) {
 
 Aggregation is a **terminal** on `SearchBuilder` — a sibling to `paginate()` / `get()` / `count()`, not a step in the filter pipeline. It reuses the same filtered query (your `where`, full-text `search`, `has`, etc. all apply) and runs a `GROUP BY` + aggregate `SELECT`, returning grouped rows instead of records.
 
-What may be aggregated is declared in `searchableConfig()` as a **closed set** — metric fields, group-by dimensions and date buckets are validated against the model, so no client-supplied column or SQL ever reaches the database.
+What may be aggregated is declared in `searchableConfig()` as a **closed set** — metric fields and group-by dimensions are validated against the model, so no client-supplied column or SQL ever reaches the database.
 
 ### Declaring aggregatable fields
 
@@ -679,10 +679,13 @@ SearchableConfig::make()
         'amount'   => ['sum', 'avg'],
     ])
     // Categorical fields allowed as a GROUP BY dimension.
-    ->dimensions(['project_id', 'status', 'employee_id'])
-    // Date / datetime fields allowed as a TEMPORAL (bucketed) group-by.
-    ->dateBuckets(['created_at', 'scheduled_time']);
+    ->dimensions(['project_id', 'status', 'employee_id']);
 ```
+
+> Aggregation stays database-agnostic: standard aggregate functions + `GROUP BY` on a
+> column. Date-bucket grouping (truncating a datetime to day/week/month) has no portable
+> SQL form, so it is intentionally **not** part of this library — handle it in your
+> (driver-aware) application layer.
 
 ### Running an aggregation
 
@@ -712,12 +715,55 @@ $rows = SearchQuery::build(Shift::query(), [
 > `aggregate()` requires the config resolved by `SearchQuery::build()` — call it on a builder
 > returned from `build()` (not on a manually constructed `SearchBuilder`).
 
+### Example JSON request
+
+A typical HTTP request carries the search payload (filters) and the aggregate spec. One
+clean convention is to nest them under separate keys:
+
+```jsonc
+// POST /shifts/aggregate
+{
+  "filter": {
+    "where": {
+      "eq": { "status": "done" },
+      "between": { "scheduled_time": ["2026-05-01 00:00:00", "2026-05-31 23:59:59"] }
+    }
+  },
+  "aggregate": {
+    "metric":    { "fn": "sum", "field": "duration" },
+    "groupBy":   { "field": "project_id" },
+    "orderBy":   "value",
+    "direction": "desc",
+    "limit":     5
+  }
+}
+```
+
+```php
+public function aggregate(Request $request)
+{
+    $rows = SearchQuery::build(Shift::query()->where('company_id', $request->user()->company_id),
+            $request->input('filter', []))
+        ->aggregate($request->input('aggregate', []));
+
+    return response()->json($rows);
+}
+```
+
+```json
+[
+  { "group": 1, "value": 142 },
+  { "group": 2, "value": 96 },
+  { "group": 3, "value": 58 }
+]
+```
+
 ### Spec & result shape
 
 | Key | Type | Description |
 |-----|------|-------------|
 | `metric` | object | **required.** `['fn' => 'count']` (count of records), or `['fn' => 'sum'\|'avg'\|'min'\|'max', 'field' => '<metric field>']` |
-| `groupBy` | object \| null | omit/null → a single scalar; `['field' => '<dimension>']` → categorical; `['field' => '<date field>', 'bucket' => 'hour'\|'day'\|'week'\|'month']` → temporal |
+| `groupBy` | object \| null | omit/null → a single scalar; `['field' => '<dimension>']` → categorical group-by |
 | `orderBy` | string | optional — `'value'` or `'group'` |
 | `direction` | string | optional — `'asc'` or `'desc'` (default: `desc` for value, `asc` for group) |
 | `limit` | int | optional — top-N rows |
@@ -733,25 +779,6 @@ Values come back as numbers — `int` for whole results, `float` for fractional 
 // Single value (KPI)
 SearchQuery::build(Shift::query(), $payload)->aggregate(['metric' => ['fn' => 'count']]);
 // [['value' => 327]]
-```
-
-### Temporal grouping (trend)
-
-Group by a date field bucketed by `hour` / `day` / `week` / `month`. The truncation expression is built per database driver (MySQL, SQLite):
-
-```php
-$rows = SearchQuery::build(Shift::query(), $payload)->aggregate([
-    'metric'    => ['fn' => 'count'],
-    'groupBy'   => ['field' => 'scheduled_time', 'bucket' => 'day'],
-    'orderBy'   => 'group',
-    'direction' => 'asc',
-]);
-
-// [
-//   ['group' => '2026-06-01', 'value' => 18],
-//   ['group' => '2026-06-02', 'value' => 26],
-//   // ...
-// ]
 ```
 
 ### Top-N
@@ -774,10 +801,9 @@ The spec is validated against the config; an invalid request throws `InvalidPayl
 
 - an unknown function (not one of `count` / `sum` / `avg` / `min` / `max`);
 - a metric `field` not declared in `metrics()`, or not allowing that function;
-- a `groupBy` field not declared in `dimensions()`;
-- a temporal `groupBy` on a field not declared in `dateBuckets()`, or an unknown `bucket`.
+- a `groupBy` field not declared in `dimensions()`.
 
-Since metric, dimension and bucket are all checked against the closed config set, no client-supplied identifier is interpolated into raw SQL.
+Since metric and dimension are both checked against the closed config set, no client-supplied identifier is interpolated into raw SQL.
 
 ## Operator Auto-Resolution
 
