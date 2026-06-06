@@ -62,6 +62,6 @@ class SearchQuery
         $sorter = new SortApplier();
         $sorter->apply($query, $payload, $config);
 
-        return new SearchBuilder($query, $payload);
+        return new SearchBuilder($query, $payload, $config);
     }
 }

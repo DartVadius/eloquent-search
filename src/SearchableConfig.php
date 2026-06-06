@@ -16,6 +16,9 @@ class SearchableConfig
     protected array $searchFields = [];
     protected array $searchCallbacks = [];
     protected array $nullableFields = [];
+    protected array $metrics = [];
+    protected array $dimensions = [];
+    protected array $dateBuckets = [];
 
     public static function make(): static
     {
@@ -116,6 +119,43 @@ class SearchableConfig
         return $this;
     }
 
+    /**
+     * Numeric fields that may be aggregated, mapped to their allowed functions.
+     * `count` (of records) is always available and needs no field.
+     *
+     * @param array<string, array<string>> $metrics field => ['sum','avg','min','max']
+     */
+    public function metrics(array $metrics): static
+    {
+        $this->metrics = $metrics;
+
+        return $this;
+    }
+
+    /**
+     * Categorical fields allowed as a GROUP BY dimension.
+     *
+     * @param array<string> $dimensions
+     */
+    public function dimensions(array $dimensions): static
+    {
+        $this->dimensions = $dimensions;
+
+        return $this;
+    }
+
+    /**
+     * Date/datetime fields allowed as a TEMPORAL group-by (bucketed by hour/day/week/month).
+     *
+     * @param array<string> $fields
+     */
+    public function dateBuckets(array $fields): static
+    {
+        $this->dateBuckets = $fields;
+
+        return $this;
+    }
+
     public function getFields(): array
     {
         return $this->fields;
@@ -186,5 +226,20 @@ class SearchableConfig
     public function getSearchCallbacks(): array
     {
         return $this->searchCallbacks;
+    }
+
+    public function getMetrics(): array
+    {
+        return $this->metrics;
+    }
+
+    public function getDimensions(): array
+    {
+        return $this->dimensions;
+    }
+
+    public function getDateBuckets(): array
+    {
+        return $this->dateBuckets;
     }
 }
