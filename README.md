@@ -37,6 +37,8 @@ Universal JSON query DSL parser for Laravel Eloquent. Accepts a structured JSON 
   - [Example JSON request](#example-json-request)
   - [Spec & result shape](#spec--result-shape)
   - [Top-N](#top-n)
+  - [Multiple metrics, derived metrics, HAVING & totals](#multiple-metrics-derived-metrics-having--totals)
+  - [Expression dimensions (period buckets, weekday, …)](#expression-dimensions-period-buckets-weekday-)
   - [Validation](#validation)
 - [Operator Auto-Resolution](#operator-auto-resolution)
 - [Custom Filters](#custom-filters-1)
@@ -46,8 +48,8 @@ Universal JSON query DSL parser for Laravel Eloquent. Accepts a structured JSON 
 
 ## Requirements
 
-- PHP >= 8.2
-- Laravel >= 11.0
+- PHP 8.2, 8.3, or 8.4
+- Laravel 11, 12, or 13 (`illuminate/database` + `illuminate/support`)
 
 ## Installation
 
@@ -689,22 +691,45 @@ What may be aggregated is declared in `searchableConfig()` as a **closed set** �
 ### Declaring aggregatable fields
 
 ```php
+use Illuminate\Support\Facades\DB;
+
 SearchableConfig::make()
     ->fields([/* ... */])
-    // Numeric fields → which functions each one allows.
+    // Metrics. Two shapes, mixed freely:
+    //  - Column metric: numeric field → which functions it allows (`fn(field)`).
+    //  - Expression metric: a name → a model-authored aggregate expression, referenced
+    //    from the payload by `{name}`. The SQL lives in YOUR model (trusted), never in
+    //    the request, so the closed-set guarantee holds.
     // `count` (of records) is always available and needs no field.
     ->metrics([
-        'duration' => ['sum', 'avg', 'min', 'max'],
-        'amount'   => ['sum', 'avg'],
+        'duration'        => ['sum', 'avg', 'min', 'max'],
+        'amount'          => ['sum', 'avg'],
+        'shift_count'     => ['expr' => DB::raw('COUNT(*)')],
+        'confirmed_count' => ['expr' => DB::raw('SUM(confirmed_by_employee)')],
     ])
-    // Categorical fields allowed as a GROUP BY dimension.
-    ->dimensions(['project_id', 'status', 'employee_id']);
+    // Dimensions. Column dimensions are string list entries; an expression dimension is a
+    // `name => DB::raw(...)` pair — the portable escape hatch for period/weekday/etc.
+    // (the driver-specific SQL is your model's code, not the request).
+    ->dimensions([
+        'project_id', 'status', 'employee_id',
+        'day' => DB::raw("DATE_FORMAT(scheduled_time, '%Y-%m-%d')"), // MySQL example
+    ])
+    // Derived metrics: computed in PHP after aggregation from the values row (keyed by
+    // metric name). Portable — it's plain PHP, no SQL.
+    ->derived([
+        'confirmation_rate' => fn ($v) => ($v['shift_count'] ?? 0) > 0
+            ? round(100 * ($v['confirmed_count'] ?? 0) / $v['shift_count'], 2) : 0,
+    ]);
 ```
 
-> Aggregation stays database-agnostic: standard aggregate functions + `GROUP BY` on a
-> column. Date-bucket grouping (truncating a datetime to day/week/month) has no portable
-> SQL form, so it is intentionally **not** part of this library — handle it in your
-> (driver-aware) application layer.
+> The library itself stays database-agnostic — it only emits standard aggregate functions
+> and `GROUP BY`. Anything driver-specific (date bucketing, `JSON_TABLE`, `CONVERT_TZ`, …)
+> belongs in an **expression metric/dimension** that your model declares: the library treats
+> it as opaque SQL it was handed, so portability is the model author's call, not the request's.
+> When a derived metric is requested, every declared expression metric is computed so the
+> closure can read its inputs by name. A derived metric should therefore depend on **expression
+> metrics** (or `count` declared as one) — a plain column metric (`fn`+`field`) is only present in
+> the closure's row when it is itself explicitly requested.
 
 ### Running an aggregation
 
@@ -778,20 +803,94 @@ public function aggregate(Request $request)
 ]
 ```
 
+**Rich request (JSON)** — multiple metrics (column + expression + derived), multi-level grouping,
+`having` (incl. `between`), top-N ordering and a grand total, all in one payload:
+
+```jsonc
+// POST /shifts/aggregate
+{
+  "where": {
+    "between": { "scheduled_time": ["2026-05-01 00:00:00", "2026-05-31 23:59:59"] }
+  },
+  "aggregate": {
+    "metrics": [
+      { "fn": "count", "as": "shift_count" },
+      { "name": "confirmed_count", "as": "confirmed_count" },
+      { "name": "confirmation_rate", "as": "rate" }
+    ],
+    "groupBy": [
+      { "field": "project_id" },
+      { "field": "status" }
+    ],
+    "having": [
+      { "metric": "shift_count", "op": "between", "value": [10, 500] }
+    ],
+    "orderBy": "rate",
+    "direction": "desc",
+    "limit": 20,
+    "total": true
+  }
+}
+```
+
+Response — `values` keyed by `as`, `group` is an object (multi-level), and a trailing grand-total
+row with `group: null`:
+
+```json
+[
+  { "group": { "project_id": 1, "status": "done" }, "values": { "shift_count": 42, "confirmed_count": 40, "rate": 95.24 } },
+  { "group": { "project_id": 2, "status": "done" }, "values": { "shift_count": 31, "confirmed_count": 25, "rate": 80.65 } },
+  { "group": null, "values": { "shift_count": 327, "confirmed_count": 300, "rate": 91.74 } }
+]
+```
+
+**Period trend (JSON)** — group by the `day` expression dimension declared on the model:
+
+```jsonc
+// POST /shifts/aggregate
+{
+  "where": {
+    "between": { "scheduled_time": ["2026-05-01 00:00:00", "2026-05-31 23:59:59"] }
+  },
+  "aggregate": {
+    "metric":    { "fn": "count" },
+    "groupBy":   { "field": "day" },
+    "orderBy":   "group",
+    "direction": "asc"
+  }
+}
+```
+
+```json
+[
+  { "group": "2026-05-01", "value": 12 },
+  { "group": "2026-05-02", "value": 9 },
+  { "group": "2026-05-03", "value": 15 }
+]
+```
+
 ### Spec & result shape
 
 | Key | Type | Description |
 |-----|------|-------------|
-| `metric` | object | **required.** `['fn' => 'count']` (count of records), or `['fn' => 'sum'\|'avg'\|'min'\|'max', 'field' => '<metric field>']` |
-| `groupBy` | object \| null | omit/null → a single scalar; `['field' => '<dimension>']` → categorical group-by |
-| `orderBy` | string | optional — `'value'` or `'group'` |
-| `direction` | string | optional — `'asc'` or `'desc'` (default: `desc` for value, `asc` for group) |
-| `limit` | int | optional — top-N rows |
+| `metric` | object | one metric (BC). `{fn:'count'}`, `{fn:'sum'\|'avg'\|'min'\|'max', field}`, or `{name}` (declared expression metric) |
+| `metrics` | array | **many** metrics: a list of metric objects, each with an optional `as` (output key). Use instead of `metric` |
+| `groupBy` | object \| array \| null | omit → scalar aggregate; `{field}` → one group-by; `[{field}, …]` → multi-level group-by (≤ `max_group_by_depth`) |
+| `having` | array | post-aggregation conditions on metric values: `[{metric:'<as>', op, value}]`. `op ∈ eq/not_eq/gt/gte/lt/lte/between` (derived-aware) |
+| `orderBy` | string | `'group'` or a metric `as`. (`'value'` is accepted as a legacy alias when using singular `metric`) |
+| `direction` | string | `'asc'` or `'desc'` (default: `desc` for a metric, `asc` for group) |
+| `limit` | int | top-N rows |
+| `total` | bool | with `groupBy`, append a grand-total row (`group: null`) re-aggregated over the full set |
 
-**Result:**
+**Result — the shape mirrors the request:**
 
-- **Grouped** → an array of `['group' => <value>, 'value' => <number>]`.
-- **No `groupBy`** (a single scalar, e.g. a KPI) → a one-element array `[['value' => <number>]]`.
+| Request | Each row |
+|---------|----------|
+| `metric` (singular) | `{group?, value}` |
+| `metrics` (plural) | `{group?, values: {as: number}}` |
+| no `groupBy` | no `group` key (single scalar / KPI row) |
+| one `groupBy` | `group` = scalar |
+| many `groupBy` | `group` = `{dimension: value, …}` |
 
 Values come back as numbers — `int` for whole results, `float` for fractional ones (e.g. `avg`).
 
@@ -803,7 +902,7 @@ SearchQuery::aggregate(Shift::query(), $payload);
 
 ### Top-N
 
-Order by the aggregate value and limit the rows (in the payload's `aggregate` block):
+Order by a metric and limit the rows (in the payload's `aggregate` block):
 
 ```php
 $payload = [
@@ -819,15 +918,95 @@ $payload = [
 $rows = SearchQuery::aggregate(Shift::query(), $payload);
 ```
 
+### Multiple metrics, derived metrics, HAVING & totals
+
+Request several metrics at once (output keyed by `as`), filter grouped rows with `having`, and
+append a grand total. Derived metrics and totals are computed correctly for non-additive metrics
+(`avg`/`min`/`max`/`distinct`) because the total is **re-aggregated over the whole set**, not summed
+from the group rows.
+
+```php
+$payload = [
+    'aggregate' => [
+        'metrics' => [
+            ['name' => 'shift_count',       'as' => 'shift_count'],     // expression metric
+            ['name' => 'confirmed_count',   'as' => 'confirmed_count'], // expression metric
+            ['name' => 'confirmation_rate', 'as' => 'rate'],            // derived (PHP)
+        ],
+        'groupBy' => [['field' => 'project_id'], ['field' => 'status']],         // multi-level
+        'having'  => [['metric' => 'shift_count', 'op' => 'gte', 'value' => 10]],
+        'orderBy' => 'rate',
+        'direction' => 'desc',
+        'total'   => true,
+    ],
+];
+
+$rows = SearchQuery::aggregate(Shift::query()->where('company_id', $id), $payload);
+
+// [
+//   ['group' => ['project_id' => 1, 'status' => 'done'], 'values' => ['shift_count' => 42, 'confirmed_count' => 40, 'rate' => 95.24]],
+//   ...
+//   ['group' => null, 'values' => ['shift_count' => 327, 'confirmed_count' => 300, 'rate' => 91.74]], // grand total
+// ]
+```
+
+`having` is applied in PHP after aggregation, so it works on derived metrics too. The grand-total
+row ignores `having`/`limit` (it always covers the full filtered set).
+
+`having` also accepts `between`:
+
+```php
+// projects whose shift_count is in [10, 100]
+'having' => [['metric' => 'shift_count', 'op' => 'between', 'value' => [10, 100]]],
+```
+
+### Expression dimensions (period buckets, weekday, …)
+
+Date bucketing has no portable SQL form, so the library doesn't ship it — but a model can declare
+an **expression dimension** (the `day => DB::raw(...)` entry shown in
+[Declaring aggregatable fields](#declaring-aggregatable-fields)) and group by it like any other
+dimension. The driver-specific SQL stays in your model; the request just names it.
+
+```php
+// Trend: shifts per day in May. `day` is the expression dimension declared on the model.
+$payload = [
+    'where'     => ['between' => ['scheduled_time' => ['2026-05-01 00:00:00', '2026-05-31 23:59:59']]],
+    'aggregate' => [
+        'metric'    => ['fn' => 'count'],
+        'groupBy'   => ['field' => 'day'],
+        'orderBy'   => 'group',
+        'direction' => 'asc',
+    ],
+];
+
+$rows = SearchQuery::aggregate(Shift::query()->where('company_id', $id), $payload);
+
+// [
+//   ['group' => '2026-05-01', 'value' => 12],
+//   ['group' => '2026-05-02', 'value' => 9],
+//   ['group' => '2026-05-03', 'value' => 15],
+//   ...
+// ]
+```
+
+The same mechanism covers `weekday`, `start_hour`, or any other computed grouping — declare the
+expression once, then it's a first-class dimension (usable in `groupBy`, single or multi-level).
+
 ### Validation
 
 The spec is validated against the config; an invalid request throws `InvalidPayloadException` (HTTP 422):
 
 - an unknown function (not one of `count` / `sum` / `avg` / `min` / `max`);
 - a metric `field` not declared in `metrics()`, or not allowing that function;
-- a `groupBy` field not declared in `dimensions()`.
+- a metric `{name}` not declared as an expression metric or a derived metric;
+- a `groupBy` field not declared in `dimensions()` (column or expression);
+- more `groupBy` levels than `limits.max_group_by_depth` (default 3);
+- a `having` condition referencing an unselected metric, or using an operator outside `eq/not_eq/gt/gte/lt/lte/between`;
+- an `orderBy` that is neither `'group'` nor a selected metric.
 
-Since metric and dimension are both checked against the closed config set, no client-supplied identifier is interpolated into raw SQL.
+Since every metric, dimension and HAVING target is checked against the closed config set, no
+client-supplied identifier is interpolated into raw SQL — only the SQL **you** declared in
+expression metrics/dimensions runs.
 
 ## Operator Auto-Resolution
 
@@ -917,9 +1096,11 @@ return [
 
     // Safety limits to prevent abuse
     'limits' => [
-        'max_conditions' => 50,      // Max total conditions across where + or + and_or + has
-        'max_or_conditions' => 10,   // Max groups in and_or
-        'max_in_values' => 500,      // Max array items in in/not_in/json_contains
+        'max_conditions' => 50,        // Max total conditions across where + or + and_or + has
+        'max_or_conditions' => 10,     // Max groups in and_or
+        'max_in_values' => 500,        // Max array items in in/not_in/json_contains
+        'max_group_by_depth' => 3,     // Max GROUP BY levels in an aggregation
+        'max_groups' => 5000,          // Hard ceiling on grouped rows fetched before PHP post-processing
     ],
 
     // What to do with fields not in the whitelist

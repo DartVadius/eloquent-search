@@ -43,15 +43,18 @@ class SearchBuilder
      * Aggregation terminal — GROUP BY + aggregate over the filtered query.
      *
      * The spec travels inside the payload under the `aggregate` key (the whole JSON goes
-     * into the builder, consistent with the rest of the DSL). Metric/group-by are validated
-     * against the model's SearchableConfig (closed set).
+     * into the builder, consistent with the rest of the DSL). Metrics, dimensions and HAVING
+     * references are validated against the model's SearchableConfig (closed set).
      *
-     * payload['aggregate']:
-     *   ['metric' => ['fn' => 'count'|'sum'|'avg'|'min'|'max', 'field' => ?string],
-     *    'groupBy' => null|['field' => string],
-     *    'orderBy' => ?'value'|'group', 'direction' => ?'asc'|'desc', 'limit' => ?int]
+     * payload['aggregate'] (all keys optional unless noted):
+     *   'metric'   => ['fn' => 'count'|'sum'|'avg'|'min'|'max', 'field' => ?string]   // one metric (BC)
+     *   'metrics'  => [ {fn,field?,as?} | {name,as?}, ... ]                            // many metrics
+     *   'groupBy'  => ['field' => string] | [ ['field'=>...], ... ] | null            // single / multi
+     *   'having'   => [ ['metric'=>'<as>', 'op'=>'eq|not_eq|gt|gte|lt|lte|between', 'value'=>...] ]
+     *   'orderBy'  => 'group'|'<as>' (|'value' legacy), 'direction' => 'asc'|'desc', 'limit' => int
+     *   'total'    => bool                                                            // append grand-total row
      *
-     * @return array<array{group?: mixed, value: int|float}>
+     * @return array<array{group?: mixed, value?: int|float, values?: array<string,int|float>}>
      */
     public function aggregate(): array
     {

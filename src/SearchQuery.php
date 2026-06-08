@@ -28,7 +28,7 @@ class SearchQuery
      * filter the data first. Mirror of apply(), but the terminal is GROUP BY instead of pagination.
      *
      * @param array<string> $allowedRelations Relations allowed for $has filtering (role-based whitelist)
-     * @return array<array{group?: mixed, value: int|float}>
+     * @return array<array{group?: mixed, value?: int|float, values?: array<string,int|float>}>
      */
     public static function aggregate(Builder $query, array $payload, array $allowedRelations = [], ?SearchableConfig $config = null): array
     {

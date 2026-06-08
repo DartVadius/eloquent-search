@@ -17,7 +17,10 @@ class SearchableConfig
     protected array $searchCallbacks = [];
     protected array $nullableFields = [];
     protected array $metrics = [];
+    protected array $metricExpressions = [];
     protected array $dimensions = [];
+    protected array $dimensionExpressions = [];
+    protected array $derived = [];
 
     public static function make(): static
     {
@@ -119,26 +122,81 @@ class SearchableConfig
     }
 
     /**
-     * Numeric fields that may be aggregated, mapped to their allowed functions.
+     * Fields/expressions that may be aggregated.
+     *
+     * Two declaration shapes (mixed freely):
+     *  - Column metric: `field => ['sum','avg','min','max']` — `fn(field)` over a numeric column.
+     *  - Expression metric: `name => ['expr' => DB::raw('SUM(CASE ...)')]` — a model-authored
+     *    aggregate expression referenced by name from the payload (`{name: ...}`). The SQL lives
+     *    in the model (trusted), never in the request — the closed-set guarantee is preserved.
+     *
      * `count` (of records) is always available and needs no field.
      *
-     * @param array<string, array<string>> $metrics field => ['sum','avg','min','max']
+     * @param array<string, array<string>|array{expr: mixed}> $metrics
      */
     public function metrics(array $metrics): static
     {
-        $this->metrics = $metrics;
+        $columns = [];
+        $expressions = [];
+
+        foreach ($metrics as $key => $def) {
+            if (is_array($def) && array_is_list($def)) {
+                $columns[$key] = $def;
+            } elseif (is_array($def) && array_key_exists('expr', $def)) {
+                $expressions[$key] = $def['expr'];
+            } else {
+                throw new \InvalidArgumentException(
+                    "Invalid metric definition for '{$key}': expected a list of functions or ['expr' => ...]."
+                );
+            }
+        }
+
+        $this->metrics = $columns;
+        $this->metricExpressions = $expressions;
 
         return $this;
     }
 
     /**
-     * Categorical fields allowed as a GROUP BY dimension.
+     * Fields/expressions allowed as a GROUP BY dimension.
      *
-     * @param array<string> $dimensions
+     * Two shapes (mixed freely in one array):
+     *  - Column dimension: a string list entry, e.g. `'status'`.
+     *  - Expression dimension: `name => DB::raw('DATE(scheduled_at)')` — a model-authored group
+     *    expression (the portable escape hatch for period/weekday/etc.; the SQL is model code).
+     *
+     * @param array<int|string, string|mixed> $dimensions
      */
     public function dimensions(array $dimensions): static
     {
-        $this->dimensions = $dimensions;
+        $columns = [];
+        $expressions = [];
+
+        foreach ($dimensions as $key => $val) {
+            if (is_int($key)) {
+                $columns[] = $val;
+            } else {
+                $expressions[$key] = $val;
+            }
+        }
+
+        $this->dimensions = $columns;
+        $this->dimensionExpressions = $expressions;
+
+        return $this;
+    }
+
+    /**
+     * Derived metrics: computed in PHP after aggregation from the row of base/expression metrics.
+     * Each closure receives the values map (keyed by metric name) and returns a number.
+     * When any derived metric is requested, every declared expression metric is computed so the
+     * closure can read its inputs by name.
+     *
+     * @param array<string, \Closure> $derived name => fn(array $values): int|float
+     */
+    public function derived(array $derived): static
+    {
+        $this->derived = $derived;
 
         return $this;
     }
@@ -220,8 +278,24 @@ class SearchableConfig
         return $this->metrics;
     }
 
+    public function getMetricExpressions(): array
+    {
+        return $this->metricExpressions;
+    }
+
     public function getDimensions(): array
     {
         return $this->dimensions;
+    }
+
+    public function getDimensionExpressions(): array
+    {
+        return $this->dimensionExpressions;
+    }
+
+    /** @return array<string, \Closure> */
+    public function getDerived(): array
+    {
+        return $this->derived;
     }
 }
